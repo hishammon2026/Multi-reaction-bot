@@ -1,23 +1,20 @@
 import asyncio
 import logging
-from pyrogram import Client, filters
-from pyrogram.types import Message
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
+from telethon.tl.functions.messages import SendReactionRequest
+from telethon.tl.types import ReactionEmoji
 
-# ലോഗ്സ് കാണാൻ (GitHub Actions-ൽ ബോട്ട് എവിടെ എത്തിയെന്ന് അറിയാൻ)
+# ലോഗ്സ് കാണാൻ
 logging.basicConfig(level=logging.INFO)
 
-# നിന്റെ വിവരങ്ങൾ
+# --- കോൺഫിഗറേഷൻ ---
 API_ID = 28390522
 API_HASH = "bb6e4438855b6c9ac8d9f0d999a664c4"
-BOT_TOKEN = "8406892242:AAFrUFwPUAKZv2QeXAVzHD0Y0ABcsaELsH4"
+# നീ തന്ന String Session ഇവിടെ നൽകുന്നു
+STRING_SESSION = "1BVtsOHABu0yBRAIqb0mCRk5CDnV8GYMDPR6-sUW4qZNEZuFAnAy1ymp0YYwJxKtCEn2fA_5SwtufMsxelHkqY19c2LF_yOCRAX924tRxQAl2oGgeHXXdNuaevk9gGrgyC26CS8oEy9zTFeKxXQqYkQNRA_pZcDD_doBokRtOuPEigyf7i9CXtVYh-H2FsSovh_WkskHw6nBGzAyQNxvuEHwLn2KSGFPbD-FIU9KjDOBYIvTfjzRV1huNfvPkd5X775QQmO61z2abvNZLG27dSKQVvCVREOvx2iqSLxUzREfjx71b6AWzIGAJuPm4QiSYIAuXHYBxzfH4EALyyZ-vA3dOag0u_c8="
 
-# ബോട്ട് ക്ലയന്റ് സെറ്റപ്പ്
-app = Client(
-    "ReactionBot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN
-)
+client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
 
 # 50 റിയാക്ഷനുകൾ ഉള്ള ലിസ്റ്റ്
 REACTIONS = [
@@ -28,31 +25,22 @@ REACTIONS = [
     "🤨", "😐", "🌭", "😘", "🆒", "🦄", "🍭", "👾", "💎", "🍋"
 ]
 
-# ബോട്ട് വർക്ക് ആകുന്നുണ്ടോ എന്ന് നോക്കാൻ /start കമാൻഡ്
-@app.on_message(filters.command("start") & filters.private)
-async def start_handler(client, message: Message):
-    await message.reply_text(
-        "**ഹലോ ഡെവലപ്പർ!**\n\n"
-        "ഞാൻ മൾട്ടി-റിയാക്ഷൻ ബോട്ട് ആണ്. എന്നെ ചാനലിൽ അഡ്മിൻ ആക്കൂ, "
-        "എല്ലാ പോസ്റ്റുകൾക്കും ഞാൻ 50 റിയാക്ഷനുകൾ നൽകും! 🔥"
-    )
-
-# ചാനലിലോ ഗ്രൂപ്പിലോ മെസ്സേജ് വരുമ്പോൾ റിയാക്ഷൻ നൽകാൻ
-@app.on_message(filters.channel | filters.group)
-async def auto_reaction(client, message: Message):
+@client.on(events.NewMessage)
+async def reaction_handler(event):
+    # പുതിയ മെസ്സേജ് വരുമ്പോൾ
     try:
         for emoji in REACTIONS:
-            await client.send_reaction(
-                chat_id=message.chat.id,
-                message_id=message.id,
-                emoji=emoji
-            )
-            # ടെലിഗ്രാം സർവർ ബ്ലോക്ക് ചെയ്യാതിരിക്കാൻ ചെറിയൊരു ഗ്യാപ്പ്
-            await asyncio.sleep(0.1)
+            await client(SendReactionRequest(
+                peer=event.chat_id,
+                msg_id=event.id,
+                add_to_recent=True,
+                reaction=[ReactionEmoji(emoticon=emoji)]
+            ))
+            # ടെലിഗ്രാം ഫ്ലഡ് തടയാൻ ചെറിയൊരു ഗ്യാപ്പ് (0.05 സെക്കൻഡ്)
+            await asyncio.sleep(0.05)
     except Exception as e:
         logging.error(f"Error: {e}")
 
-# ബോട്ട് റൺ ചെയ്യാൻ
-if __name__ == "__main__":
-    print("ബോട്ട് സ്റ്റാർട്ട് ആയിട്ടുണ്ട്...")
-    app.run()
+print("നിന്റെ Telethon UserBot വിജയകരമായി സ്റ്റാർട്ട് ആയിട്ടുണ്ട്! ചാനലിൽ പോസ്റ്റ് ഇട്ടു നോക്കൂ...")
+client.start()
+client.run_until_disconnected()
